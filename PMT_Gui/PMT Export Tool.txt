@@ -1,0 +1,104 @@
+import maya.cmds as cmds
+import os
+
+def get_maya_file_name():
+    # Get the name of the current Maya file
+    maya_file = cmds.file(q=True, sceneName=True)
+    if maya_file:
+        return os.path.splitext(os.path.basename(maya_file))[0]
+    else:
+        return None
+
+def export_to_subfolder(selected_folder, subfolder_name):
+    # Get the name of the Maya file
+    maya_file_name = get_maya_file_name()
+
+    # Check if a Maya file has been saved
+    if maya_file_name:
+        # Define PMT Projects folder path
+        pmt_projects_folder = r"C:\Autodesk\Autodesk_Maya_2024_1_Update_Windows_64bit_dlm\Company name\PMT Projects"
+
+        # Construct the export path
+        folder_path = os.path.join(pmt_projects_folder, selected_folder)
+        exported_folder = os.path.join(folder_path, "exported", subfolder_name)
+        file_path = os.path.join(exported_folder, "{}.fbx".format(maya_file_name))
+
+        # Get all meshes in the scene
+        all_meshes = cmds.ls(geometry=True)
+        if not all_meshes:
+            cmds.warning("No meshes found in the scene!")
+            return
+
+        # Export all meshes to FBX
+        cmds.select(all_meshes)
+        cmds.file(file_path, force=True, options="v=0", typ="FBX export", pr=True, es=True)
+        cmds.warning("Meshes exported to: {}".format(file_path))
+    else:
+        cmds.warning("Maya file is untitled! Please save the file before exporting.")
+
+def create_export_ui(selected_folder):
+    # Close the main UI
+    if cmds.window("exportWindow", exists=True):
+        cmds.deleteUI("exportWindow")
+
+    # Create window
+    if cmds.window("exportSubfolderWindow", exists=True):
+        cmds.deleteUI("exportSubfolderWindow")
+    window = cmds.window("exportSubfolderWindow", title="Select Subfolder", widthHeight=(250, 150))
+
+    # Create layout
+    layout = cmds.columnLayout(adjustableColumn=True)
+
+    # Dropdown for subfolders in "exported" folder
+    subfolder_dropdown = cmds.optionMenu(label="Select Subfolder")
+
+    # Define PMT Projects folder path
+    pmt_projects_folder = r"C:\Autodesk\Autodesk_Maya_2024_1_Update_Windows_64bit_dlm\Company name\PMT Projects"
+
+    # Construct the exported folder path
+    exported_folder = os.path.join(pmt_projects_folder, selected_folder, "exported")
+
+    # Get subfolders within the exported folder
+    subfolders = [f for f in os.listdir(exported_folder) if os.path.isdir(os.path.join(exported_folder, f))]
+
+    # Populate dropdown with subfolder options
+    for subfolder in subfolders:
+        cmds.menuItem(label=subfolder)
+
+    # Export button
+    cmds.button(label="Export", command=lambda x: export_to_subfolder(selected_folder, cmds.optionMenu(subfolder_dropdown, query=True, value=True)))
+
+    # Back button
+    cmds.button(label="Back", command=lambda x: (cmds.deleteUI(window), create_main_ui()))
+
+    # Show window
+    cmds.showWindow(window)
+
+def create_main_ui():
+    # Close the subfolder UI if it's open
+    if cmds.window("exportSubfolderWindow", exists=True):
+        cmds.deleteUI("exportSubfolderWindow")
+
+    # Define PMT Projects folder path
+    pmt_projects_folder = r"C:\Autodesk\Autodesk_Maya_2024_1_Update_Windows_64bit_dlm\Company name\PMT Projects"
+
+    # Get subfolders inside PMT Projects folder excluding "Project Assets"
+    subfolders = [f for f in os.listdir(pmt_projects_folder) if os.path.isdir(os.path.join(pmt_projects_folder, f)) and f != "Project Assets"]
+
+    # Create window
+    if cmds.window("exportWindow", exists=True):
+        cmds.deleteUI("exportWindow")
+    window = cmds.window("exportWindow", title="Export Meshes", widthHeight=(250, 150))
+
+    # Create layout
+    layout = cmds.columnLayout(adjustableColumn=True)
+
+    # Create buttons for each subfolder
+    for folder_name in subfolders:
+        cmds.button(label=folder_name, command=lambda x, folder=folder_name: create_export_ui(folder))
+
+    # Show window
+    cmds.showWindow(window)
+
+# Create the main UI
+create_main_ui()
